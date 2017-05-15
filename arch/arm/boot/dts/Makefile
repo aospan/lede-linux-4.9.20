@@ -102,7 +102,8 @@ dtb-$(CONFIG_ARCH_BCM_5301X) += \
 	bcm94709.dtb \
 	bcm953012er.dtb \
 	bcm953012hr.dtb \
-	bcm953012k.dtb
+	bcm953012k.dtb \
+	bcm4708-edgecore-ecw7220-l-o.dtb
 dtb-$(CONFIG_ARCH_BCM_53573) += \
 	bcm47189-tenda-ac9.dtb
 dtb-$(CONFIG_ARCH_BCM_63XX) += \

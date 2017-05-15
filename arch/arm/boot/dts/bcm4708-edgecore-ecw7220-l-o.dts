@@ -1,0 +1,95 @@
+/*
+ * Broadcom BCM470X / BCM5301X ARM platform code.
+ * DTS for Edgecore ECW7220-L (outdoor) wifi access point
+ *
+ * Copyright (C) 2017 Abylay Ospan <aospan@jokersys.com>
+ *
+ * Licensed under the GNU/GPL. See COPYING for details.
+ */
+
+/dts-v1/;
+
+#include "bcm-nsp.dtsi"
+
+/ {
+	compatible = "edgecore,ecw7220-l-o", "brcm,nsp";
+	model = "Edgecore ECW7220-L-O";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "mem=128M console=ttyS0,115200 init=/sbin/init debug ubi.mtd=6 root=/dev/ubiblock0_0 rootfstype=squashfs pci=pcie_bus_safe";
+	};
+
+	memory {
+    reg = <0x60000000 0x08000000>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&pcie0 {
+          status = "okay";
+};
+
+&pcie1 {
+          status = "okay";
+};
+
+/* TODO: check ECC parameters
+ * move to separate file
+*/
+&nand { 
+	nandcs@0 {
+		compatible = "brcm,nandcs";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		nand-ecc-algo = "bch";
+		nand-ecc-strength = <1>;
+		nand-ecc-step-size = <512>;
+
+    /* Outdoor version has 512MB nand */
+		partition@0 {
+			label = "boot";
+			reg = <0x00000000 0x100000>;
+			read-only;
+		};
+		partition@1 {
+			label = "nvram";
+			reg = <0x00100000 0x00020000>;
+		};
+		partition@2 {
+			label = "boot_env";
+			reg = <0x00120000 0x00020000>;
+		};
+		partition@3 {
+			label = "log";
+			reg = <0x00140000 0x00040000>;
+		};
+		partition@4 {
+			label = "onie";
+			reg = <0x00180000 0x00280000>;
+		};
+
+		partition@5 {
+			label = "open";
+			reg = <0x00400000 0x1B700000>;
+		};
+		partition@6 {
+			label = "ubi_rootfs";
+			reg = <0x00800000 0x1B200000>;
+		};
+	};
+};
