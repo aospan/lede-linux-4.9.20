@@ -4020,8 +4020,11 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
 
 	/* Read entire ID string */
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < 8; i++) {
 		id_data[i] = chip->read_byte(mtd);
+    printk("aospan:mtd off=%d id=0x%x\n", i, id_data[i]);
+
+  }
 
 	if (id_data[0] != *maf_id || id_data[1] != *dev_id) {
 		pr_info("second ID read did not match %02x,%02x against %02x,%02x\n",

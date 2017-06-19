@@ -17,6 +17,7 @@
 #ifndef _BRCMS_DEBUG_H_
 #define _BRCMS_DEBUG_H_
 
+#define DEBUG 1
 #include <linux/device.h>
 #include <linux/bcma/bcma.h>
 #include <net/cfg80211.h>

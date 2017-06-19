@@ -463,6 +463,8 @@ ai_buscore_setup(struct si_info *sii, struct bcma_device *cc)
 		sii->pub.pmurev = sii->pub.pmucaps & PCAP_REV_MASK;
 	}
 
+  printk("aospan:%s cccaps=0x%x \n", __func__, sii->pub.cccaps );
+
 	return true;
 }
 

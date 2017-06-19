@@ -14,6 +14,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#define DEBUG 1
 #include <linux/debugfs.h>
 #include <linux/if_ether.h>
 #include <linux/if.h>

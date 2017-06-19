@@ -88,6 +88,7 @@
 
 
 /* brcmsmac IDs */
+#define BCM4332_D11N2G_ID	0x4332	/* aospan */
 #define BCM4313_D11N2G_ID	0x4727	/* 4313 802.11n 2.4G device */
 #define BCM43224_D11N_ID	0x4353	/* 43224 802.11n dualband device */
 #define BCM43224_D11N_ID_VEN1	0x0576	/* Vendor specific 43224 802.11n db */
@@ -95,6 +96,7 @@
 #define BCM43236_D11N_ID	0x4346	/* 43236 802.11n dualband device */
 #define BCM43236_D11N2G_ID	0x4347	/* 43236 802.11n 2.4GHz device */
 
+#define BCM4332_CHIP_ID		0x4332 // aospan
 #define BCM4313_CHIP_ID		0x4313
 #define BCM43224_CHIP_ID	43224
 

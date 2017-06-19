@@ -15,6 +15,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#define DEBUG 1
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/pci_ids.h>
@@ -1248,33 +1249,42 @@ static void brcms_b_clkctl_clk(struct brcms_hardware *wlc_hw, enum bcma_clkmode 
 		 * set. Should wakeup mac if driver wants it to run on HT.
 		 */
 
+    printk("aospan:%s .0 \n", __func__ );
 		if (wlc_hw->clk) {
 			if (mode == BCMA_CLKMODE_FAST) {
+        printk("aospan:%s .0.1.1 \n", __func__ );
 				bcma_set32(wlc_hw->d11core,
 					   D11REGOFFS(clk_ctl_st),
 					   CCS_FORCEHT);
 
 				udelay(64);
 
+        printk("aospan:%s .0.1.2 \n", __func__ );
 				SPINWAIT(
 				    ((bcma_read32(wlc_hw->d11core,
 				      D11REGOFFS(clk_ctl_st)) &
 				      CCS_HTAVAIL) == 0),
 				      PMU_MAX_TRANSITION_DLY);
+        printk("aospan:%s .0.1.3 \n", __func__ );
 				WARN_ON(!(bcma_read32(wlc_hw->d11core,
 					D11REGOFFS(clk_ctl_st)) &
 					CCS_HTAVAIL));
+        printk("aospan:%s .0.1.4 \n", __func__ );
 			} else {
+        printk("aospan:%s .0.2 \n", __func__ );
 				if ((ai_get_pmurev(wlc_hw->sih) == 0) &&
 				    (bcma_read32(wlc_hw->d11core,
 					D11REGOFFS(clk_ctl_st)) &
-					(CCS_FORCEHT | CCS_HTAREQ)))
+					(CCS_FORCEHT | CCS_HTAREQ))) {
+          printk("aospan:%s .0.2.1\n", __func__ );
 					SPINWAIT(
 					    ((bcma_read32(wlc_hw->d11core,
 					      offsetof(struct d11regs,
 						       clk_ctl_st)) &
 					      CCS_HTAVAIL) == 0),
 					      PMU_MAX_TRANSITION_DLY);
+        }
+        printk("aospan:%s .0.2.2 \n", __func__ );
 				bcma_mask32(wlc_hw->d11core,
 					D11REGOFFS(clk_ctl_st),
 					~CCS_FORCEHT);
@@ -1283,6 +1293,7 @@ static void brcms_b_clkctl_clk(struct brcms_hardware *wlc_hw, enum bcma_clkmode 
 		wlc_hw->forcefastclk = (mode == BCMA_CLKMODE_FAST);
 	} else {
 
+    printk("aospan:%s .1 \n", __func__ );
 		/* old chips w/o PMU, force HT through cc,
 		 * then use FCA to verify mac is running fast clock
 		 */
@@ -1294,6 +1305,7 @@ static void brcms_b_clkctl_clk(struct brcms_hardware *wlc_hw, enum bcma_clkmode 
 			WARN_ON(!(bcma_aread32(wlc_hw->d11core, BCMA_IOST) &
 				  SISF_FCLKA));
 
+    printk("aospan:%s .2 \n", __func__ );
 		/*
 		 * keep the ucode wake bit on if forcefastclk is on since we
 		 * do not want ucode to put us back to slow clock when it dozes
@@ -1310,6 +1322,7 @@ static void brcms_b_clkctl_clk(struct brcms_hardware *wlc_hw, enum bcma_clkmode 
 		else
 			mboolclr(wlc_hw->wake_override,
 				 BRCMS_WAKE_OVERRIDE_FORCEFAST);
+    printk("aospan:%s .3 \n", __func__ );
 	}
 }
 
@@ -1785,6 +1798,7 @@ void brcms_b_phy_reset(struct brcms_hardware *wlc_hw)
 	bool phy_in_reset = false;
 
 	brcms_dbg_info(wlc_hw->d11core, "wl%d: reset phy\n", wlc_hw->unit);
+	printk("wl%d: reset phy\n", wlc_hw->unit);
 
 	if (pih == NULL)
 		return;
@@ -2003,6 +2017,7 @@ void brcms_b_corereset(struct brcms_hardware *wlc_hw, u32 flags)
 {
 	uint i;
 	bool fastclk;
+  printk("aospan:%s \n", __func__ );
 
 	if (flags == BRCMS_USE_COREFLAGS)
 		flags = (wlc_hw->band->pi ? wlc_hw->band->core_flags : 0);
@@ -2014,6 +2029,7 @@ void brcms_b_corereset(struct brcms_hardware *wlc_hw, u32 flags)
 	if (!fastclk)
 		brcms_b_clkctl_clk(wlc_hw, BCMA_CLKMODE_FAST);
 
+  printk("aospan:%s .2 \n", __func__ );
 	/* reset the dma engines except first time thru */
 	if (bcma_core_is_enabled(wlc_hw->d11core)) {
 		for (i = 0; i < NFIFO; i++)
@@ -2060,15 +2076,20 @@ void brcms_b_corereset(struct brcms_hardware *wlc_hw, u32 flags)
 		wlc_phy_hw_clk_state_upd(wlc_hw->band->pi, true);
 
 	brcms_c_mctrl_reset(wlc_hw);
+  printk("aospan:%s .3 \n", __func__ );
 
 	if (ai_get_cccaps(wlc_hw->sih) & CC_CAP_PMU)
 		brcms_b_clkctl_clk(wlc_hw, BCMA_CLKMODE_FAST);
 
+  printk("aospan:%s .3.1 \n", __func__ );
+
 	brcms_b_phy_reset(wlc_hw);
+  printk("aospan:%s .4 \n", __func__ );
 
 	/* turn on PHY_PLL */
 	brcms_b_core_phypll_ctl(wlc_hw, true);
 
+  printk("aospan:%s .5 \n", __func__ );
 	/* clear sw intstatus */
 	wlc_hw->wlc->macintstatus = 0;
 
@@ -4469,8 +4490,10 @@ static int brcms_b_attach(struct brcms_c_info *wlc, struct bcma_device *core,
 		goto fail;
 	}
 
+  printk("aospan:%s brcms_c_isgoodchip done ok \n", __func__ );
 	/* initialize power control registers */
 	ai_clkctl_init(wlc_hw->sih);
+  printk("aospan:%s ai_clkctl_init done ok \n", __func__ );
 
 	/* request fastclock and force fastclock for the rest of attach
 	 * bring the d11 core out of reset.
@@ -4479,8 +4502,10 @@ static int brcms_b_attach(struct brcms_c_info *wlc, struct bcma_device *core,
 	 *   after d11 is out of reset.
 	 */
 	brcms_b_clkctl_clk(wlc_hw, BCMA_CLKMODE_FAST);
+  printk("aospan:%s brcms_b_clkctl_clk done ok \n", __func__ );
 	brcms_b_corereset(wlc_hw, BRCMS_USE_COREFLAGS);
 
+  printk("aospan:%s brcms_b_corereset done ok \n", __func__ );
 	if (!brcms_b_validate_chip_access(wlc_hw)) {
 		wiphy_err(wiphy, "wl%d: brcms_b_attach: validate_chip_access "
 			"failed\n", unit);
@@ -4488,6 +4513,7 @@ static int brcms_b_attach(struct brcms_c_info *wlc, struct bcma_device *core,
 		goto fail;
 	}
 
+  printk("aospan:%s brcms_b_validate_chip_access done ok \n", __func__ );
 	/* get the board rev, used just below */
 	j = sprom->board_rev;
 	/* promote srom boardrev of 0xFF to 1 */
@@ -4505,6 +4531,7 @@ static int brcms_b_attach(struct brcms_c_info *wlc, struct bcma_device *core,
 	wlc_hw->sromrev = sprom->revision;
 	wlc_hw->boardflags = sprom->boardflags_lo + (sprom->boardflags_hi << 16);
 	wlc_hw->boardflags2 = sprom->boardflags2_lo + (sprom->boardflags2_hi << 16);
+  printk("aospan:%s brcms_c_validboardtype done ok \n", __func__ );
 
 	if (wlc_hw->boardflags & BFL_NOPLLDOWN)
 		brcms_b_pllreq(wlc_hw, true, BRCMS_PLLREQ_SHARED);
@@ -5653,6 +5680,8 @@ static bool brcms_c_chipmatch_pci(struct bcma_device *core)
 	if ((device == BCM43224_D11N_ID) || (device == BCM43225_D11N2G_ID))
 		return true;
 	if (device == BCM4313_D11N2G_ID || device == BCM4313_CHIP_ID)
+		return true;
+	if (device == BCM4332_D11N2G_ID || device == BCM4332_CHIP_ID) // aospan
 		return true;
 	if ((device == BCM43236_D11N_ID) || (device == BCM43236_D11N2G_ID))
 		return true;
