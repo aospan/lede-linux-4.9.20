@@ -27,11 +27,14 @@ static void bcma_host_pci_switch_core(struct bcma_device *core)
  * used. It makes use of fixed windows when possible. */
 static u16 bcma_host_pci_provide_access_to_core(struct bcma_device *core)
 {
+	// printk("aospan:%s core id=0x%x\n", __func__, core->id.id);
 	switch (core->id.id) {
 	case BCMA_CORE_CHIPCOMMON:
 		return 3 * BCMA_CORE_SIZE;
 	case BCMA_CORE_PCIE:
 		return 2 * BCMA_CORE_SIZE;
+	// case BCMA_CORE_80211:
+		// return 1 * BCMA_CORE_SIZE; // aospan::hack
 	}
 
 	if (core->bus->mapped_core != core)
@@ -54,6 +57,7 @@ static u16 bcma_host_pci_read16(struct bcma_device *core, u16 offset)
 static u32 bcma_host_pci_read32(struct bcma_device *core, u16 offset)
 {
 	offset += bcma_host_pci_provide_access_to_core(core);
+	printk("aospan:%s offset=0x%x mmio=%p\n", __func__, offset, core->bus->mmio);
 	return ioread32(core->bus->mmio + offset);
 }
 
@@ -75,6 +79,7 @@ static void bcma_host_pci_write32(struct bcma_device *core, u16 offset,
 				 u32 value)
 {
 	offset += bcma_host_pci_provide_access_to_core(core);
+	// printk("aospan:%s offset=0x%x mmio=%p val=0x%x\n", __func__, offset, core->bus->mmio, value);
 	iowrite32(value, core->bus->mmio + offset);
 }
 
@@ -83,6 +88,7 @@ static void bcma_host_pci_block_read(struct bcma_device *core, void *buffer,
 				     size_t count, u16 offset, u8 reg_width)
 {
 	void __iomem *addr = core->bus->mmio + offset;
+	printk("aospan:%s \n", __func__ );
 	if (core->bus->mapped_core != core)
 		bcma_host_pci_switch_core(core);
 	switch (reg_width) {
@@ -107,6 +113,7 @@ static void bcma_host_pci_block_write(struct bcma_device *core,
 				      u16 offset, u8 reg_width)
 {
 	void __iomem *addr = core->bus->mmio + offset;
+	printk("aospan:%s \n", __func__ );
 	if (core->bus->mapped_core != core)
 		bcma_host_pci_switch_core(core);
 	switch (reg_width) {
@@ -129,14 +136,17 @@ static void bcma_host_pci_block_write(struct bcma_device *core,
 
 static u32 bcma_host_pci_aread32(struct bcma_device *core, u16 offset)
 {
+	printk("aospan:%s \n", __func__ );
 	if (core->bus->mapped_core != core)
 		bcma_host_pci_switch_core(core);
+	// printk("aospan:%s offset=0x%x mmio=%p\n", __func__, (1 * BCMA_CORE_SIZE) + offset, core->bus->mmio);
 	return ioread32(core->bus->mmio + (1 * BCMA_CORE_SIZE) + offset);
 }
 
 static void bcma_host_pci_awrite32(struct bcma_device *core, u16 offset,
 				  u32 value)
 {
+	// printk("aospan:%s \n", __func__ );
 	if (core->bus->mapped_core != core)
 		bcma_host_pci_switch_core(core);
 	iowrite32(value, core->bus->mmio + (1 * BCMA_CORE_SIZE) + offset);
@@ -165,6 +175,7 @@ static int bcma_host_pci_probe(struct pci_dev *dev,
 	const char *name;
 	u32 val;
 
+  printk("aospan:%s \n", __func__ );
 	/* Alloc */
 	bus = kzalloc(sizeof(*bus), GFP_KERNEL);
 	if (!bus)
@@ -201,6 +212,7 @@ static int bcma_host_pci_probe(struct pci_dev *dev,
 	bus->mmio = pci_iomap(dev, 0, ~0UL);
 	if (!bus->mmio)
 		goto err_pci_release_regions;
+	printk("aospan:%s mmio=%p \n", __func__, bus->mmio);
 
 	/* Host specific */
 	bus->host_pci = dev;
@@ -289,6 +301,8 @@ static const struct pci_device_id bcma_pci_bridge_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4313) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 43224) },	/* 0xa8d8 */
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4331) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x43a2) }, // aospan
+	// { PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4332) }, // aospan
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4353) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4357) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4358) },

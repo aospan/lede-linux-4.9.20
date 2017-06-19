@@ -178,6 +178,7 @@ void bcma_core_chipcommon_early_init(struct bcma_drv_cc *cc)
 	if (cc->core->id.rev >= 11)
 		cc->status = bcma_cc_read32(cc, BCMA_CC_CHIPSTAT);
 	cc->capabilities = bcma_cc_read32(cc, BCMA_CC_CAP);
+  printk("aospan:%s capabilities=0x%x \n", __func__, cc->capabilities);
 	if (cc->core->id.rev >= 35)
 		cc->capabilities_ext = bcma_cc_read32(cc, BCMA_CC_CAP_EXT);
 

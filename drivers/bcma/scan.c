@@ -157,8 +157,21 @@ static void bcma_scan_switch_core(struct bcma_bus *bus, u32 addr)
 static u32 bcma_erom_get_ent(struct bcma_bus *bus, u32 __iomem **eromptr)
 {
 	u32 ent = readl(*eromptr);
+  // printk("aospan:%s ent=0x%x \n", __func__, ent);
 	(*eromptr)++;
 	return ent;
+}
+
+static u32 bcma_erom_get_ent_valid(struct bcma_bus *bus, u32 __iomem **eromptr)
+{
+	u32 ent = 0;
+  while (true) {
+	  ent = bcma_erom_get_ent(bus, eromptr);
+	  if (ent & SCAN_ER_VALID) {
+      // printk("aospan:%s SUCCESS ent=0x%x \n", __func__, ent);
+      return ent;
+    }
+  }
 }
 
 static void bcma_erom_push_ent(u32 __iomem **eromptr)
@@ -166,9 +179,39 @@ static void bcma_erom_push_ent(u32 __iomem **eromptr)
 	(*eromptr)--;
 }
 
+static bool bcma_erom_is_end(struct bcma_bus *bus, u32 __iomem **eromptr);
+
+static s32 bcma_erom_get_ci_lookup(struct bcma_bus *bus,
+    u32 __iomem **eromptr, u32 __iomem **eromend)
+{
+	u32 ent = 0;
+
+  while (true) {
+    if( (*eromptr) >= (*eromend) ) {
+      // printk("aospan:%s END REACHED \n", __func__);
+    }
+
+	  ent = bcma_erom_get_ent(bus, eromptr);
+
+    if ((ent & SCAN_ER_VALID) &&
+        (ent & SCAN_ER_TAG) == SCAN_ER_TAG_END)
+      return -ENOENT;
+
+	  if (!(ent & SCAN_ER_VALID))
+      continue;
+
+	  if ((ent & SCAN_ER_TAG) != SCAN_ER_TAG_CI)
+      continue;
+
+    // printk("aospan:%s SUCCESS ent=0x%x \n", __func__, ent);
+	  return ent;
+  }
+}
+
 static s32 bcma_erom_get_ci(struct bcma_bus *bus, u32 __iomem **eromptr)
 {
 	u32 ent = bcma_erom_get_ent(bus, eromptr);
+  // printk("aospan:%s ent=0x%x \n", __func__, ent);
 	if (!(ent & SCAN_ER_VALID))
 		return -ENOENT;
 	if ((ent & SCAN_ER_TAG) != SCAN_ER_TAG_CI)
@@ -189,7 +232,8 @@ static bool bcma_erom_is_bridge(struct bcma_bus *bus, u32 __iomem **eromptr)
 	bcma_erom_push_ent(eromptr);
 	return (((ent & SCAN_ER_VALID)) &&
 		((ent & SCAN_ER_TAGX) == SCAN_ER_TAG_ADDR) &&
-		((ent & SCAN_ADDR_TYPE) == SCAN_ADDR_TYPE_BRIDGE));
+		((ent & SCAN_ADDR_TYPE) == SCAN_ADDR_TYPE_MWRAP /* SCAN_ADDR_TYPE_BRIDGE */ ));
+    // aospan
 }
 
 static void bcma_erom_skip_component(struct bcma_bus *bus, u32 __iomem **eromptr)
@@ -222,16 +266,21 @@ static u32 bcma_erom_get_addr_desc(struct bcma_bus *bus, u32 __iomem **eromptr,
 	u32 addrl, addrh, sizel, sizeh = 0;
 	u32 size;
 
-	u32 ent = bcma_erom_get_ent(bus, eromptr);
+	u32 ent = bcma_erom_get_ent_valid(bus, eromptr);
+  // printk("aospan:%s type=0x%x ent=0x%x\n", __func__, type, ent);
 	if ((!(ent & SCAN_ER_VALID)) ||
 	    ((ent & SCAN_ER_TAGX) != SCAN_ER_TAG_ADDR) ||
-	    ((ent & SCAN_ADDR_TYPE) != type) ||
-	    (((ent & SCAN_ADDR_PORT) >> SCAN_ADDR_PORT_SHIFT) != port)) {
+	    ((ent & SCAN_ADDR_TYPE) != type)
+#ifndef CONFIG_ARCH_BCM_NSP
+	    || (((ent & SCAN_ADDR_PORT) >> SCAN_ADDR_PORT_SHIFT) != port)
+#endif
+  ) {
 		bcma_erom_push_ent(eromptr);
 		return (u32)-EINVAL;
 	}
 
 	addrl = ent & SCAN_ADDR_ADDR;
+  //printk("aospan:%s addrl=%p ent=0x%x \n", __func__, addrl, ent);
 	if (ent & SCAN_ADDR_AG32)
 		addrh = bcma_erom_get_ent(bus, eromptr);
 	else
@@ -275,17 +324,31 @@ static struct bcma_device *bcma_find_core_reverse(struct bcma_bus *bus, u16 core
 #define IS_ERR_VALUE_U32(x) ((x) >= (u32)-MAX_ERRNO)
 
 static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
-			      struct bcma_device_id *match, int core_num,
-			      struct bcma_device *core)
+    u32 __iomem **eromend, struct bcma_device_id *match, int core_num,
+    struct bcma_device *core)
 {
 	u32 tmp;
 	u8 i, j, k;
 	s32 cia, cib;
 	u8 ports[2], wrappers[2];
 
+  // aospan
+  /* printk("aospan:%s bcma_erom_is_bridge \n", __func__ );
+	if (bcma_erom_is_bridge(bus, eromptr)) {
+    printk("aospan:%s bcma_erom_is_bridge \n", __func__ );
+		bcma_erom_skip_component(bus, eromptr);
+		return -ENXIO;
+	} */
+
 	/* get CIs */
-	cia = bcma_erom_get_ci(bus, eromptr);
+	cia = bcma_erom_get_ci_lookup(bus, eromptr, eromend);
+  // printk("aospan:%s cia=%d \n", __func__, cia );
 	if (cia < 0) {
+    if( (*eromptr) >= (*eromend) ) {
+      // printk("aospan:%s END REACHED \n", __func__);
+      return -ESPIPE;
+    }
+
 		bcma_erom_push_ent(eromptr);
 		if (bcma_erom_is_end(bus, eromptr))
 			return -ESPIPE;
@@ -305,10 +368,17 @@ static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
 	wrappers[1] = (cib & SCAN_CIB_NSW) >> SCAN_CIB_NSW_SHIFT;
 	core->id.rev = (cib & SCAN_CIB_REV) >> SCAN_CIB_REV_SHIFT;
 
+  // printk("aospan:%s bcma_erom_get_ci done. manuf=0x%x id=0x%x cia=0x%x cib=0x%x\n", 
+      // __func__, core->id.manuf, core->id.id, cia, cib );
+
 	if (((core->id.manuf == BCMA_MANUF_ARM) &&
-	     (core->id.id == 0xFFF)) ||
-	    (ports[1] == 0)) {
+	     (core->id.id == 0xFFF)) 
+#ifndef CONFIG_ARCH_BCM_NSP
+      || (ports[1] == 0)
+#endif
+     ) {
 		bcma_erom_skip_component(bus, eromptr);
+    // printk("aospan:%s FAIL.0 \n", __func__);
 		return -ENXIO;
 	}
 
@@ -324,17 +394,20 @@ static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
 			break;
 		default:
 			bcma_erom_skip_component(bus, eromptr);
+      // printk("aospan:%s FAIL.1 \n", __func__);
 			return -ENXIO;
 		}
 	}
 
 	if (bcma_erom_is_bridge(bus, eromptr)) {
 		bcma_erom_skip_component(bus, eromptr);
+    // printk("aospan:%s bcma_erom_is_bridge \n", __func__);
 		return -ENXIO;
 	}
 
 	if (bcma_find_core_by_index(bus, core_num)) {
 		bcma_erom_skip_component(bus, eromptr);
+    // printk("aospan:%s bcma_find_core_by_index\n", __func__);
 		return -ENODEV;
 	}
 
@@ -345,14 +418,90 @@ static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
 	     (match->class != BCMA_ANY_CLASS && match->class != core->id.class)
 	    )) {
 		bcma_erom_skip_component(bus, eromptr);
+    // printk("aospan:%s match fail\n", __func__);
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_ARCH_BCM_NSP
 	/* get & parse master ports */
 	for (i = 0; i < ports[0]; i++) {
 		s32 mst_port_d = bcma_erom_get_mst_port(bus, eromptr);
-		if (mst_port_d < 0)
+		if (mst_port_d < 0) {
+      // printk("aospan:%s bcma_erom_get_mst_port\n", __func__ );
+			return -ENXIO;
+    } else {
+      // printk("aospan:%s bcma_erom_get_mst_port MASTER PORT FOUND !\n", __func__ );
+    }
+	}
+
+	/* get & parse master wrappers */
+	for (i = 0; i < wrappers[0]; i++) {
+		for (j = 0; ; j++) {
+			tmp = bcma_erom_get_addr_desc(bus, eromptr,
+				SCAN_ADDR_TYPE_MWRAP, i);
+			if (IS_ERR_VALUE_U32(tmp)) {
+				/* no more entries for port _i_ */
+				/* pr_debug("erom: master wrapper %d "
+				 * "has %d descriptors\n", i, j); */
+				break;
+			} else {
+				if (i == 0 && j == 0)
+					core->wrap = tmp;
+			}
+		}
+	}
+  // printk("aospan:%s core->wrap=%p \n", __func__, core->wrap );
+
+	/* First Slave Address Descriptor should be port 0:
+	 * the main register space for the core
+	 */
+	tmp = bcma_erom_get_addr_desc(bus, eromptr, SCAN_ADDR_TYPE_SLAVE, 0);
+	if (tmp == 0 || IS_ERR_VALUE_U32(tmp)) {
+		/* Try again to see if it is a bridge */
+		tmp = bcma_erom_get_addr_desc(bus, eromptr,
+					      SCAN_ADDR_TYPE_BRIDGE, 0);
+		if (tmp == 0 || IS_ERR_VALUE_U32(tmp)) {
+      // printk("aospan:%s FAIL bcma_erom_get_addr_desc. tmp=%d\n", __func__, (int)tmp );
+			// return -EILSEQ;
+			return -ENXIO;
+		} else {
+			bcma_info(bus, "Bridge found\n");
+      // printk("aospan:%s Bridge found \n", __func__);
+			return -ENXIO;
+		}
+	}
+	core->addr = tmp;
+  // printk("aospan:%s tmp=%p \n", __func__, tmp);
+
+	/* get & parse slave ports */
+	k = 0;
+	for (i = 0; i < ports[1]; i++) {
+		for (j = 0; ; j++) {
+			tmp = bcma_erom_get_addr_desc(bus, eromptr,
+				SCAN_ADDR_TYPE_SLAVE, i);
+			if (IS_ERR_VALUE_U32(tmp)) {
+				/* no more entries for port _i_ */
+				/* pr_debug("erom: slave port %d "
+				 * "has %d descriptors\n", i, j); */
+				break;
+      } else if (k < ARRAY_SIZE(core->addr_s)) {
+        // printk("aospan:%s SLAVE FOUND tmp=%p \n", __func__, tmp );
+				core->addr_s[k] = tmp;
+				k++;
+			}
+		}
+	}
+
+#else
+	/* get & parse master ports */
+	for (i = 0; i < ports[0]; i++) {
+		s32 mst_port_d = bcma_erom_get_mst_port(bus, eromptr);
+		if (mst_port_d < 0) {
+      // printk("aospan:%s bcma_erom_get_mst_port\n", __func__ );
 			return -EILSEQ;
+    } else {
+      // printk("aospan:%s bcma_erom_get_mst_port MASTER PORT FOUND !\n", __func__ );
+    }
 	}
 
 	/* First Slave Address Descriptor should be port 0:
@@ -364,13 +513,17 @@ static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
 		tmp = bcma_erom_get_addr_desc(bus, eromptr,
 					      SCAN_ADDR_TYPE_BRIDGE, 0);
 		if (tmp == 0 || IS_ERR_VALUE_U32(tmp)) {
-			return -EILSEQ;
+      // printk("aospan:%s FAIL bcma_erom_get_addr_desc. tmp=%d\n", __func__, (int)tmp );
+			// return -EILSEQ;
+			return -ENXIO;
 		} else {
 			bcma_info(bus, "Bridge found\n");
+      // printk("aospan:%s Bridge found \n", __func__);
 			return -ENXIO;
 		}
 	}
 	core->addr = tmp;
+  // printk("aospan:%s tmp=%p \n", __func__, tmp);
 
 	/* get & parse slave ports */
 	k = 0;
@@ -424,8 +577,12 @@ static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
 			}
 		}
 	}
+#endif
+
 	if (bus->hosttype == BCMA_HOSTTYPE_SOC) {
 		core->io_addr = ioremap_nocache(core->addr, BCMA_CORE_SIZE);
+    // printk("aospan:%s soc io_addr=%p core->addr=%p core->wrap=0x%x\n", 
+        // __func__, core->io_addr, core->addr, core->wrap);
 		if (!core->io_addr)
 			return -ENOMEM;
 		if (core->wrap) {
@@ -465,6 +622,7 @@ int bcma_bus_scan(struct bcma_bus *bus)
 	u32 __iomem *eromptr, *eromend;
 
 	int err, core_num = 0;
+	// printk("aospan:%s \n", __func__ );
 
 	/* Skip if bus was already scanned (e.g. during early register) */
 	if (bus->nr_cores)
@@ -479,6 +637,7 @@ int bcma_bus_scan(struct bcma_bus *bus)
 		eromptr = bus->mmio;
 	}
 
+	// printk("aospan:%s .2\n", __func__ );
 	eromend = eromptr + BCMA_CORE_SIZE / sizeof(u32);
 
 	bcma_scan_switch_core(bus, erombase);
@@ -493,9 +652,10 @@ int bcma_bus_scan(struct bcma_bus *bus)
 		INIT_LIST_HEAD(&core->list);
 		core->bus = bus;
 
-		err = bcma_get_next_core(bus, &eromptr, NULL, core_num, core);
+		err = bcma_get_next_core(bus, &eromptr, &eromend, NULL, core_num, core);
 		if (err < 0) {
 			kfree(core);
+			// printk("aospan:%s bcma_get_next_core return %d \n", __func__, err);
 			if (err == -ENODEV) {
 				core_num++;
 				continue;
