@@ -118,7 +118,7 @@ dtb-$(CONFIG_ARCH_BCM_MOBILE) += \
 	bcm21664-garnet.dtb \
 	bcm23550-sparrow.dtb
 dtb-$(CONFIG_ARCH_BCM_NSP) += \
-	bcm958522er.dtb \
+	#bcm958522er.dtb \
 	bcm958525er.dtb \
 	bcm958525xmc.dtb \
 	bcm958622hr.dtb \
