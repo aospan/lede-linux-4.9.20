@@ -1062,6 +1062,8 @@ void __init setup_arch(char **cmdline_p)
 {
 	const struct machine_desc *mdesc;
 
+  early_print("aospan:%s __atags_pointer=%p\n", __func__, __atags_pointer);
+
 	setup_processor();
 	mdesc = setup_machine_fdt(__atags_pointer);
 	if (!mdesc)

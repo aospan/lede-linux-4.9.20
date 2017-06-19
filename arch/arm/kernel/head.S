@@ -27,6 +27,14 @@
 #include CONFIG_DEBUG_LL_INCLUDE
 #endif
 
+#define SOC_ROM_BASE_PA   0xffff0000
+// #define SOC_ROM_LUT_OFF   0x400
+#define SOC_ROM_LUT_OFF   0xfec
+
+/* PL310 L2 Cache Controller base address */
+#define L2CC_BASE_PA            0x19022000
+
+
 /*
  * swapper_pg_dir is the virtual address of the initial page table.
  * We place the page tables 16K below KERNEL_RAM_VADDR.  Therefore, we must
@@ -85,11 +93,27 @@ ENTRY(stext)
  THUMB(	.thumb			)	@ switch to Thumb now.
  THUMB(1:			)
 
+  STMDB SP!, {r0, r1, r2, r3, r4, LR} /* save to stack */
+  /* should show 0x0 - mean disabled L2 */
+  ldr     r3, =L2CC_BASE_PA       @ L2 cache controller, control reg
+  ldr     r0, [r3, #0x100]        @ Disable L2 cache
+  bl      printhex8
+  LDMIA SP!, {r0, r1, r2, r3, r4, LR} /* pop stack back */
+
 #ifdef CONFIG_ARM_VIRT_EXT
 	bl	__hyp_stub_install
 #endif
 	@ ensure svc mode and all interrupts masked
 	safe_svcmode_maskall r9
+
+  /* on NSP doesn't work. cause 'data abort' */
+  /* force second CPU to TWI/TWE 
+   * without this 'hack' second CPU fail to go online later
+   */
+  // ldr r1, =SOC_ROM_BASE_PA
+  // ldr r0, =0xffff002c
+  // str r0, [r1, #SOC_ROM_LUT_OFF]
+  // nop
 
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type		@ r5=procinfo r9=cpuid
